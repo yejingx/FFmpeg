@@ -277,6 +277,7 @@ typedef struct VideoState {
     AVStream *subtitle_st;
     PacketQueue subtitleq;
 
+    double audio_timer;
     double frame_timer;
     double frame_last_returned_time;
     double frame_last_filter_delay;
@@ -2409,6 +2410,7 @@ static int audio_decode_frame(VideoState *is)
     av_unused double audio_clock0;
     int wanted_nb_samples;
     Frame *af;
+    double latency;
 
     if (is->paused)
         return -1;
@@ -2424,7 +2426,11 @@ static int audio_decode_frame(VideoState *is)
         if (!(af = frame_queue_peek_readable(&is->sampq)))
             return -1;
         frame_queue_next(&is->sampq);
-    } while (af->serial != is->audioq.serial);
+
+        is->audio_timer += af->duration;
+        latency = is->audio_timer - audio_callback_time/1000000.0;
+
+    } while (af->serial != is->audioq.serial || latency < 0);
 
     data_size = av_samples_get_buffer_size(NULL, av_frame_get_channels(af->frame),
                                            af->frame->nb_samples,
@@ -2519,8 +2525,14 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
 {
     VideoState *is = opaque;
     int audio_size, len1;
+    double time;
 
     audio_callback_time = av_gettime_relative();
+
+    time = audio_callback_time/1000000.0;
+    if(isnan(is->audio_timer) || time - is->audio_timer > AV_NOSYNC_THRESHOLD) {
+        is->audio_timer = time;
+    }
 
     while (len > 0) {
         if (is->audio_buf_index >= is->audio_buf_size) {
@@ -2851,6 +2863,8 @@ static int read_thread(void *arg)
     is->last_audio_stream = is->audio_stream = -1;
     is->last_subtitle_stream = is->subtitle_stream = -1;
     is->eof = 0;
+
+    is->audio_timer = NAN;
 
     ic = avformat_alloc_context();
     if (!ic) {
