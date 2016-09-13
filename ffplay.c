@@ -2430,6 +2430,14 @@ static int audio_decode_frame(VideoState *is)
         is->audio_timer += af->duration;
         latency = is->audio_timer - audio_callback_time/1000000.0;
 
+        if (latency < 0) {
+            av_log(NULL, AV_LOG_WARNING, "DROP AUDIO l: %f, d: %f, act: %f, at: %f\n",
+                    latency,
+                    af->duration,
+                    audio_callback_time/1000000.0,
+                    is->audio_timer);
+        }
+
     } while (af->serial != is->audioq.serial || latency < 0);
 
     data_size = av_samples_get_buffer_size(NULL, av_frame_get_channels(af->frame),
