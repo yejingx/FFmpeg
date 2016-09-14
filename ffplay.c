@@ -85,6 +85,9 @@ const int program_birth_year = 2003;
 /* no AV correction is done if too big error */
 #define AV_NOSYNC_THRESHOLD 10.0
 
+/* no AV chase is done if too big error */
+#define AV_NOCHASE_THRESHOLD 10.0
+
 /* maximum audio speed change to get correct sync */
 #define SAMPLE_CORRECTION_PERCENT_MAX 10
 
@@ -2538,7 +2541,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
     audio_callback_time = av_gettime_relative();
 
     time = audio_callback_time/1000000.0;
-    if(isnan(is->audio_timer) || time - is->audio_timer > AV_NOSYNC_THRESHOLD) {
+    if(isnan(is->audio_timer) || time - is->audio_timer > AV_NOCHASE_THRESHOLD) {
         is->audio_timer = time;
     }
 
